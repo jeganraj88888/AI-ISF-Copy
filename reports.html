@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI-ISF | Reports</title><link rel="stylesheet" href="xdr.css"></head><body><script src="xdr.js"></script><script>
+shell('Reports','Reports & Exports','Generate and download datasets from your real AI-ISF evidence',`
+<div class="grid g4">
+ <div class="stat s-cyan"><div class="ico">${ic('pulse')}</div><div class="lab">Authentication events</div><div class="num" id="rEv">—</div><div class="sub">login + face telemetry</div><button class="btn primary sm" id="bEv" style="margin-top:12px">${ic('download')} Generate CSV</button></div>
+ <div class="stat s-red"><div class="ico">${ic('brief')}</div><div class="lab">Cases</div><div class="num" id="rCa">—</div><div class="sub">triage &amp; closing notes</div><a class="btn sm" href="/api/download/cases.csv" style="margin-top:12px">${ic('download')} Download CSV</a></div>
+ <div class="stat s-amber"><div class="ico">${ic('list')}</div><div class="lab">Audit trail</div><div class="num" id="rAu">—</div><div class="sub">platform actions</div><a class="btn sm" href="/api/download/audit.csv" style="margin-top:12px">${ic('download')} Download CSV</a></div>
+ <div class="stat s-violet"><div class="ico">${ic('monitor')}</div><div class="lab">Devices</div><div class="num" id="rDe">—</div><div class="sub">observed endpoints</div><a class="btn sm" href="/api/download/agents.csv" style="margin-top:12px">${ic('download')} Download CSV</a></div>
+</div>
+<div class="panel"><div class="ph"><div><h2>Report History</h2><div class="sub" id="rCount"></div></div></div><div id="tRep"></div></div>`);
+let T;
+const urlFor=r=>{if(r.source==='audit')return '/api/download/audit.csv';if(r.source==='cases')return '/api/download/cases.csv';if(r.source==='agents')return '/api/download/agents.csv';if(r.source==='Advanced Search'||r.source==='Search'){let q='';try{const o=JSON.parse(r.query_text||'{}');q=o.q||o.query||''}catch(_){}return '/api/search/export?format='+encodeURIComponent(r.format||'csv')+'&q='+encodeURIComponent(q)}return '/api/download/events.csv'};
+async function load(){const [h,s,c,a,g]=await Promise.all([getJSON('/api/reports/history'),getJSON('/api/dashboard/statistics'),getJSON('/api/cases'),getJSON('/api/audit-logs?limit=500'),getJSON('/api/agents')]);
+ $('rEv').textContent=s?.total_attempts??'—';$('rCa').textContent=(c?.cases||[]).length;const al=(a?.logs||[]).length;$('rAu').textContent=al>=500?'500+':al;$('rDe').textContent=g?.total??(g?.agents||[]).length;
+ const rows=h?.reports||[];$('rCount').textContent=`${rows.length} report${rows.length===1?'':'s'} generated`;
+ if(!T)T=DT({mount:'tRep',size:10,id:x=>x.id,sort:4,dir:-1,empty:'<div class="big">◌</div><strong>No reports yet</strong>Generate a report from your real data above.',cols:[{h:'NAME',s:x=>x.name,r:x=>`<div class="t1">${esc(x.name)}</div>`},{h:'SOURCE',s:x=>x.source,r:x=>`<span class="pill b">${esc(x.source)}</span>`},{h:'FORMAT',s:x=>x.format,r:x=>`<span class="pill x">${esc(String(x.format).toUpperCase())}</span>`},{h:'RECORDS',s:x=>x.record_count,r:x=>`<span class="mono">${x.record_count}</span>`},{h:'CREATED',s:x=>new Date(x.created_at).getTime(),r:x=>tm(x.created_at),cls:'nw'},{h:'',r:x=>`<a class="btn sm" href="${urlFor(x)}">${ic('download')} Download</a>`,cls:'nw'}]});
+ T.set(rows)}
+$('bEv').onclick=async()=>{$('bEv').disabled=true;const d=await post('/api/reports/generate',{source:'events',format:'csv'});$('bEv').disabled=false;if(d?.success){toast('Report created — downloading','ok');load();location.href=d.download_url}else toast(d?.message||'Report failed','err')};
+window.onRefresh=load;load();
+</script></body></html>

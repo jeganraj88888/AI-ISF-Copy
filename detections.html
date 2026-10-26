@@ -1,0 +1,32 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI-ISF | Detections</title><link rel="stylesheet" href="xdr.css"></head><body><script src="xdr.js"></script><script>
+shell('Detections','Detections','Every authentication event, scored by the hybrid rule + Isolation Forest engine',`
+<div class="panel"><div class="pad" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border)">
+ <input id="dq" class="fi" style="flex:1;min-width:220px;max-width:360px" placeholder="Search detection, IP, host, OS, ID…" autocomplete="off">
+ <div style="display:flex;gap:6px" id="fSev"><button class="chip on" data-v="">All</button><button class="chip" data-v="HIGH">High</button><button class="chip" data-v="MEDIUM">Medium</button><button class="chip" data-v="LOW">Low</button></div>
+ <div style="display:flex;gap:6px" id="fSt"><button class="chip on" data-v="">Any status</button><button class="chip" data-v="OPEN">Open</button><button class="chip" data-v="RESOLVED">Resolved</button></div>
+ <select id="fOs" class="fi" style="width:auto"><option value="">All OS</option></select>
+ <span style="flex:1"></span><span id="dcount" class="muted mono" style="font-size:11px"></span>
+ <button class="btn" id="dexp" title="Download the rows currently shown">${ic('download')} CSV</button>
+ <button class="btn primary" id="dbulk" disabled>Resolve selected</button></div>
+ <div id="tDet"></div></div>`);
+let ALL=[],T=null,SEV='',ST='';
+const idn=x=>String(x.id).replace(/\D/g,'');
+function pred(x){const q=$('dq').value.trim().toLowerCase(),os=$('fOs').value;if(SEV&&String(x.risk_level).toUpperCase()!==SEV)return false;if(ST&&x.case_status!==ST)return false;if(os&&x.os!==os)return false;
+ return !q||[x.id,x.event_type,x.detail,x.ip,x.host,x.endpoint,x.os,x.user,x.result,x.location].join(' ').toLowerCase().includes(q)}
+const apply=()=>T&&T.filter(pred);
+function drawer(x){openDrawer(x.event_type,`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">${sevPill(x.risk_level)}${resPill(x.result)}${statusPill(x.case_status,x.resolution_status)}</div><dl class="kv"><dt>ID</dt><dd class="mono">${esc(x.id)}</dd><dt>Time</dt><dd>${fmt(x.timestamp)}</dd><dt>Risk</dt><dd>${riskBar(x.risk)}</dd><dt>Action</dt><dd>${esc(x.action)}</dd><dt>IP</dt><dd class="mono">${esc(x.ip)}</dd><dt>Host</dt><dd>${esc(x.host)}</dd><dt>Endpoint</dt><dd class="mono">${esc(x.endpoint)}</dd><dt>OS</dt><dd>${esc(x.os)}</dd><dt>Location</dt><dd>${esc(x.location)}</dd><dt>User</dt><dd>${esc(x.user)}</dd><dt>Detail</dt><dd>${esc(x.detail)}</dd>${x.closing_notes?`<dt>Closing notes</dt><dd>${esc(x.closing_notes)}</dd>`:''}${x.resolved_at?`<dt>Resolved</dt><dd>${fmt(x.resolved_at)}</dd>`:''}</dl><div style="margin-top:22px;display:flex;gap:9px"><button class="btn primary" id="dwTri">${x.case_status==='RESOLVED'?'Review / Re-open':'Resolve / Triage'}</button><a class="btn" href="advanced-search.html?q=${encodeURIComponent(x.ip)}">Find related</a></div>`,esc(x.id));
+ $('dwTri').onclick=()=>{closeAll();openTriage([idn(x)],load,x.resolution_status||'OPEN')}}
+function build(){T=DT({mount:'tDet',size:12,select:true,id:r=>r.id,sort:0,dir:-1,onRow:drawer,
+ onCount:(v,t)=>$('dcount').textContent=`${v} of ${t} detections`,onSel:ids=>{$('dbulk').disabled=!ids.length;$('dbulk').textContent=ids.length?`Resolve selected (${ids.length})`:'Resolve selected'},
+ empty:'<div class="big">◌</div><strong>No matching detections</strong>Filters only apply to your real authentication telemetry.',
+ cols:[{h:'TIME',s:x=>new Date(x.timestamp).getTime(),r:x=>tm(x.timestamp),cls:'nw'},{h:'DETECTION',s:x=>x.event_type,r:x=>`<div class="t1">${esc(x.event_type)} ${resPill(x.result)}</div><div class="t2">${esc(x.detail||'')}</div>`},{h:'SEVERITY',s:x=>Number(x.risk),r:x=>sevPill(x.risk_level)},{h:'RISK',s:x=>Number(x.risk),r:x=>riskBar(x.risk)},{h:'DEVICE',s:x=>x.os,r:x=>`<div>${esc(x.os)}</div><div class="t2 mono">${esc(x.ip)}</div>`},{h:'STATUS',s:x=>x.case_status||'',r:x=>statusPill(x.case_status,x.resolution_status)},{h:'',r:x=>`<button class="btn sm ${x.case_status==='RESOLVED'?'':'primary'}" data-tri="${idn(x)}">${x.case_status==='RESOLVED'?'Review':'Resolve'}</button>`,cls:'nw'}]});
+ $('tDet').addEventListener('click',e=>{const b=e.target.closest('[data-tri]');if(b){const x=ALL.find(r=>idn(r)===b.dataset.tri);openTriage([b.dataset.tri],load,x?.resolution_status||'OPEN')}})}
+async function load(){const d=await getJSON('/api/events?limit=500');ALL=d?.events||[];const oses=[...new Set(ALL.map(x=>x.os).filter(Boolean))].sort(),cur=$('fOs').value;$('fOs').innerHTML='<option value="">All OS</option>'+oses.map(o=>`<option ${o===cur?'selected':''}>${esc(o)}</option>`).join('');if(!T)build();T.set(ALL);apply()}
+$('dq').oninput=apply;$('fOs').onchange=apply;
+$$('#fSev .chip').forEach(c=>c.onclick=()=>{SEV=c.dataset.v;$$('#fSev .chip').forEach(x=>x.classList.toggle('on',x===c));apply()});
+$$('#fSt .chip').forEach(c=>c.onclick=()=>{ST=c.dataset.v;$$('#fSt .chip').forEach(x=>x.classList.toggle('on',x===c));apply()});
+$('dbulk').onclick=()=>openTriage(T.selected(),async()=>{T.clearSel();await load()});
+$('dexp').onclick=()=>{const v=T.view();if(!v.length)return toast('Nothing to export','err');const c=s=>'"'+String(s??'').replace(/"/g,'""')+'"';download('ai-isf-detections.csv',['id,timestamp,event,result,risk,severity,ip,host,endpoint,os,status,detail',...v.map(x=>[x.id,x.timestamp,x.event_type,x.result,x.risk,x.risk_level,x.ip,x.host,x.endpoint,x.os,x.resolution_status||x.case_status||'OPEN',x.detail].map(c).join(','))].join('\n'));toast(`Exported ${v.length} detections`,'ok')};
+window.onRefresh=load;
+(async()=>{const pq=new URLSearchParams(location.search).get('q');if(pq)$('dq').value=pq;await load();if(pq){const m=ALL.filter(x=>x.id===pq);if(m.length===1)drawer(m[0])}})();
+</script></body></html>

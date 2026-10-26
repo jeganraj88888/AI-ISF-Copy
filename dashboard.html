@@ -1,0 +1,50 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI-ISF | Dashboard</title><link rel="stylesheet" href="xdr.css"></head><body><script src="xdr.js"></script><script>
+shell('Dashboard','Security Operations','Live identity authentication & fraud monitoring',`
+<div class="grid g5">
+ <div class="stat s-cyan"><div class="ico">${ic('pulse')}</div><div class="lab">Auth events</div><div class="num" id="nEvents">—</div><div class="sub">all recorded attempts</div><div id="spEvents"></div></div>
+ <div class="stat s-green"><div class="ico">${ic('check')}</div><div class="lab">Successful</div><div class="num" id="nOk">—</div><div class="sub" id="subOk">&nbsp;</div><div id="spOk"></div></div>
+ <div class="stat s-red"><div class="ico">${ic('x')}</div><div class="lab">Failed</div><div class="num" id="nFail">—</div><div class="sub" id="subFail">&nbsp;</div><div id="spFail"></div></div>
+ <div class="stat s-amber"><div class="ico">${ic('alert')}</div><div class="lab">High risk</div><div class="num" id="nHigh">—</div><div class="sub">risk score ≥ 71</div><div id="spHigh"></div></div>
+ <div class="stat s-violet"><div class="ico">${ic('brief')}</div><div class="lab">Open cases</div><div class="num" id="nCases">—</div><div class="sub" id="subCases">&nbsp;</div></div>
+</div>
+<div class="grid g21">
+ <div class="panel"><div class="ph"><div><h2>Event Activity</h2><div class="sub">Authentication events over time</div></div><div style="display:flex;gap:6px"><button class="chip on" data-r="24h">24H</button><button class="chip" data-r="7d">7D</button></div></div>
+  <div class="pad"><div id="cTime"><div class="skel" style="height:210px"></div></div><div class="legend" style="margin:8px 0 18px"><span><i style="background:#22d3ee"></i>All events</span><span><i style="background:#fb7185"></i>High risk</span></div>
+  <label class="l">Peak risk per hour · last 24 h</label><div id="cHeat"></div></div></div>
+ <div class="panel hud"><i></i><i></i><i></i><i></i><div class="ph"><div><h2>Risk Posture</h2><div class="sub">Average risk across all events</div></div><span class="pill x" id="lvl">—</span></div>
+  <div class="pad"><div class="gaugebox"><div id="cGauge"></div></div><div style="margin-top:20px" id="cDist"></div></div></div>
+</div>
+<div class="grid g21">
+ <div class="panel"><div class="ph"><div><h2>Recent Detections</h2><div class="sub" id="recSub">Latest authentication events</div></div><a class="btn sm" href="detections.html">View all →</a></div><div id="tRecent"></div></div>
+ <div class="stack">
+  <div class="panel"><div class="ph"><h2>Open Cases</h2><a class="btn sm" href="cases.html">All cases →</a></div><div id="openCases" class="pad"><div class="skel"></div></div></div>
+  <div class="panel"><div class="ph"><h2>AI Risk Engine</h2><span id="mStatus" class="pill x">—</span></div><div class="pad" id="mInfo"><div class="skel"></div></div></div>
+  <div class="panel"><div class="ph"><h2>System Health</h2><span class="muted mono" id="sysHost" style="font-size:10px"></span></div><div class="pad" id="sysInfo"><div class="skel"></div></div></div>
+ </div>
+</div>`);
+let RANGE='24h',EV=[],seen=null,DTR=null;
+$$('[data-r]').forEach(b=>b.onclick=()=>{RANGE=b.dataset.r;$$('[data-r]').forEach(x=>x.classList.toggle('on',x===b));drawTime()});
+const hourly=f=>{const a=Array(24).fill(0),now=Date.now();EV.forEach(x=>{if(!f(x))return;const age=Math.floor((now-new Date(x.timestamp))/36e5);if(age>=0&&age<24)a[23-age]++});return a};
+function drawTime(){const now=new Date(),n=RANGE==='24h'?24:7,ms=RANGE==='24h'?36e5:864e5,labels=[],all=Array(n).fill(0),hi=Array(n).fill(0);
+ for(let i=n-1;i>=0;i--){const d=new Date(now-i*ms);labels.push(RANGE==='24h'?d.getHours()+':00':d.toLocaleDateString(undefined,{month:'short',day:'numeric'}))}
+ EV.forEach(x=>{const age=Math.floor((now-new Date(x.timestamp))/ms);if(age>=0&&age<n){all[n-1-age]++;if(Number(x.risk)>=71)hi[n-1-age]++}});
+ $('cTime').innerHTML=CH.line(labels,[{name:'Events',color:'#22d3ee',values:all},{name:'High risk',color:'#fb7185',values:hi}])}
+function drawHeat(){const cells=Array.from({length:24},(_,i)=>({n:0,peak:0,label:new Date(Date.now()-(23-i)*36e5).getHours()+':00'})),now=Date.now();EV.forEach(x=>{const age=Math.floor((now-new Date(x.timestamp))/36e5);if(age>=0&&age<24){const c=cells[23-age];c.n++;c.peak=Math.max(c.peak,Number(x.risk)||0)}});$('cHeat').innerHTML=CH.heat(cells)}
+const bar=(l,v)=>{const c=v>=85?'#fb7185':v>=60?'#fbbf24':'#34d399';return `<div class="bar-row"><div class="t"><span class="muted">${l}</span><b class="mono">${v==null?'n/a':v.toFixed(0)+'%'}</b></div><div class="progress"><i style="width:${v||0}%;background:${c}"></i></div></div>`};
+async function load(){const [s,e,c,m,sys,dg]=await Promise.all([getJSON('/api/dashboard/statistics'),getJSON('/api/events?limit=500'),getJSON('/api/cases'),getJSON('/api/model/status'),getJSON('/api/system'),getJSON('/api/diagnostics')]);
+ EV=e?.events||[];const cs=c?.cases||[],open=cs.filter(x=>x.status==='OPEN');
+ if(s){$('nEvents').textContent=s.total_attempts;$('nOk').textContent=s.successful_logins;$('nFail').textContent=s.failed_logins;$('nHigh').textContent=s.high_risk_events;
+  const t=s.total_attempts||0;$('subOk').textContent=t?Math.round(s.successful_logins/t*100)+'% of attempts':'no data yet';$('subFail').textContent=t?Math.round(s.failed_logins/t*100)+'% of attempts':'no data yet';
+  const avg=s.average_risk_score||0;$('cGauge').innerHTML=CH.gauge(avg);const L=avg>=71?['HIGH','r']:avg>=31?['ELEVATED','a']:['NOMINAL','g'];$('lvl').className='pill '+L[1];$('lvl').textContent=L[0];
+  $('cDist').innerHTML=CH.stack([{l:'Low',v:Math.max(0,t-(s.medium_risk_events||0)-(s.high_risk_events||0)),c:'#34d399'},{l:'Medium',v:s.medium_risk_events||0,c:'#fbbf24'},{l:'High',v:s.high_risk_events||0,c:'#fb7185'}])}
+ $('nCases').textContent=open.length;$('subCases').textContent=`${cs.length-open.length} resolved · ${cs.length} total`;
+ $('spEvents').innerHTML=CH.spark(hourly(()=>1),'#22d3ee');$('spOk').innerHTML=CH.spark(hourly(x=>x.result==='PASSED'||x.result==='PASSWORD_OK'),'#34d399');$('spFail').innerHTML=CH.spark(hourly(x=>x.result==='FAILED'),'#fb7185');$('spHigh').innerHTML=CH.spark(hourly(x=>Number(x.risk)>=71),'#fbbf24');
+ drawTime();drawHeat();
+ if(!DTR)DTR=DT({mount:'tRecent',size:8,pager:false,sort:-1,id:r=>r.id,onRow:r=>location.href='detections.html?q='+encodeURIComponent(r.id),empty:'<div class="big">◌</div><strong>No authentication events yet</strong>Sign in with face verification to generate real telemetry.',cols:[{h:'TIME',r:x=>tm(x.timestamp),cls:'nw'},{h:'DETECTION',r:x=>`<div class="t1">${esc(x.event_type)}</div><div class="t2">${esc(x.detail||'')}</div>`},{h:'SEVERITY',r:x=>sevPill(x.risk_level)},{h:'RISK',r:x=>riskBar(x.risk)},{h:'STATUS',r:x=>statusPill(x.case_status,x.resolution_status)}]});
+ const ids=new Set(EV.map(x=>x.id));DTR.set(EV,seen?new Set(EV.filter(x=>!seen.has(x.id)).map(x=>x.id)):null);seen=ids;$('recSub').textContent=`Latest of ${EV.length} recorded events`;
+ $('openCases').innerHTML=open.length?open.slice(0,4).map(x=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)"><span class="pill r">${Number(x.risk_score||0).toFixed(0)}</span><div style="flex:1;min-width:0"><div class="t1" style="font-weight:700;font-size:12.5px">${esc(x.event_type||'Detection')}</div><div class="muted" style="font-size:11px">CASE-${String(x.id).padStart(5,'0')} · ${ago(x.created_at)}</div></div><button class="btn sm primary" data-ev="${x.event_id}">Resolve</button></div>`).join(''):'<div class="empty" style="padding:22px"><div class="big">✓</div><strong>All clear</strong>No open cases</div>';
+ $$('[data-ev]',$('openCases')).forEach(b=>b.onclick=()=>openTriage([b.dataset.ev],load));
+ if(m){$('mStatus').textContent=m.status.replace('_',' ');$('mStatus').className='pill '+(m.trained?'g':'a');const need=m.minimum_events||20,have=m.real_event_count||0,p=Math.min(100,have/need*100);$('mInfo').innerHTML=`<div style="font-weight:700">Isolation Forest</div><div class="muted" style="margin:6px 0 9px;font-size:12px">${m.trained?'Trained on your real telemetry'+(m.metadata?.trained_at?' · '+ago(m.metadata.trained_at):''):`Needs ${Math.max(0,need-have)} more real events to train`}</div><div class="progress"><i style="width:${p}%"></i></div><div class="muted mono" style="margin-top:7px;font-size:10.5px">${have} / ${need} real events</div>`}
+ if(sys){$('sysHost').textContent=sys.hostname||'';$('sysInfo').innerHTML=bar('CPU',sys.cpu_percent)+bar('Memory',sys.memory_percent)+bar('Disk',sys.disk_percent)+(dg?`<div class="legend" style="margin-top:4px">${Object.entries(dg.checks||{}).filter(([k,v])=>typeof v==='boolean').map(([k,v])=>`<span><i style="background:${v?'#34d399':'#fb7185'}"></i>${k.replace(/_/g,' ')}</span>`).join('')}</div>`:'')}}
+window.onRefresh=load;load();
+</script></body></html>

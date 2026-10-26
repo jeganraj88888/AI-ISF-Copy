@@ -1,0 +1,69 @@
+AI-ISF XDR V20 — FINAL PLATFORM UPDATE
+
+DESIGN
+- Keeps the Claude-derived XDR shell, typography, spacing and dark SOC layout.
+
+REMOVED FROM NAVIGATION
+- Automations
+- Integrations
+- Network
+- Alerts
+- Access Control
+
+DETECTIONS
+- Removed the CASE column.
+- Added row selection and bulk triage.
+- Added Severity, IP, User, Host, Endpoint and OS filters.
+- Added Resolve/Triage action.
+- Resolve/Triage modal supports:
+  Open
+  True Positive Benign
+  True Positive Malicious
+  False Positive
+  Not Actionable
+- Closing notes are mandatory for resolved states and are stored in the case + audit trail.
+- Triage creates a real case only when needed; it never creates fake authentication telemetry.
+
+ADVANCED SEARCH
+- AI Search keyword mode.
+- Query Builder filters.
+- Query Editor.
+- Real-data presets: failed logins 24h, high-risk, face failures, password failures, new device.
+- CSV/JSON exports.
+- Exported reports are stored in report history.
+
+ENDPOINT AGENTS
+- Device/host/OS/fingerprint inventory derived only from recorded authentication telemetry.
+
+THREAT RESEARCH
+- Observed threat patterns from real AI-ISF telemetry.
+- High-risk and case-action notifications.
+- Live CISA Known Exploited Vulnerabilities feed with graceful offline fallback.
+
+REPORTS / DOWNLOADS
+- Authentication events.
+- Cases.
+- Audit logs.
+- Endpoint agents.
+- Advanced Search exports.
+- Report history.
+
+TOOLS / CTI
+- What is my public IP (browser ipify) with server-visible fallback.
+- VirusTotal API v3 lookup for IP/domain/URL/hash when VT_API_KEY is configured.
+- RDAP domain lookup.
+- Quick links to URLhaus, AlienVault OTX, AbuseIPDB, MITRE ATT&CK and CISA KEV.
+
+TENANT SETTINGS
+- Host-owned tenant workspace creation.
+- Tenant name, ID, status, notes and creation time.
+- Does not create additional login users.
+
+AUDIT LOGS
+- Authentication events plus page views, searches, exports, report creation, CTI lookups, tenant creation and detection/case actions.
+
+ML
+- Synthetic Isolation Forest training removed.
+- Existing model files without real-model metadata are ignored.
+- Isolation Forest trains only after >=20 real authentication events.
+- Model status explicitly reports NOT_TRAINED until that threshold is reached.

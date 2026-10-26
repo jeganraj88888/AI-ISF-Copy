@@ -1,0 +1,11 @@
+services:
+  ai-isf:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      AISF_JWT_SECRET: change-this-in-local-compose
+      AISF_JWT_EXP_MINUTES: 60
+      AISF_FACE_THRESHOLD: 70
+    volumes:
+      - ./data:/app/data

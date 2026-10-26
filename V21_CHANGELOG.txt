@@ -1,0 +1,30 @@
+AI-ISF XDR V21 - "Neon HUD" frontend redesign (backend, database and data/ untouched)
+
+DESIGN
+- New futuristic dark UI (animated grid + glow background, glass panels, HUD corners, boot screen,
+  heartbeat status line, neon accents) with a light theme. No external libraries or fonts - works offline.
+- Simpler navigation: 12 pages in 3 groups (Overview / Investigate / Manage).
+- Merged: Downloads -> Reports page. (Tools stays as its own page under Investigate.)
+
+FEATURES
+- Dashboard: KPI cards with sparklines, event chart (24H/7D), 24-hour risk heat strip, risk gauge,
+  open cases with one-click Resolve, AI engine status, system health.
+- Detections: search + severity/status/OS chips, row checkboxes, bulk Resolve/Triage, detail drawer, CSV of shown rows.
+- Cases: stats, search, status filter, detail drawer, Resolve/Update.
+- AI Assistant: chat interface answering from your own telemetry (summary, high-risk, face/password failures,
+  new devices, open cases, free-text search) with clickable results.
+- Advanced Search: one search bar + presets + collapsible filters; CSV/JSON export.
+- Risk Lab: scenario buttons, sliders, score breakdown per signal.
+- Threat Intel: notifications, CISA KEV feed, observed threat patterns.
+- Tools (kept): What is my IP, VirusTotal, RDAP, CTI quick links, Model status / Diagnostics / System checks - all shown as readable cards (raw JSON still available).
+- Everywhere: Ctrl+K command palette, live mode, notifications bell, sortable tables with paging, light/dark theme.
+
+REMOVED (unwanted)
+- Filter rows/CASE/ENDPOINT/HOST/USER columns that repeated the same value, duplicate 'Apply filters' step,
+  raw JSON dumps, 'Switch Tenant' placeholder, footer text, separate Downloads page.
+
+FIXED
+- 'AI Search' in Advanced Search read the wrong input (duplicate id 'q'); now works.
+- Cases, Advanced Search, Devices, Threat Research, Reports, Tools, Tenant Settings and Audit Logs pages threw
+  '$ is not defined' and showed nothing; all fixed.
+- Pages used CSS classes that did not exist (card-head, stat-value, event-dot...); replaced.

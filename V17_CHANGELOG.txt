@@ -1,0 +1,8 @@
+AI-ISF XDR V17
+
+UI preserved from the supplied Claude XDR design.
+Removed from navigation/package: Automations, Integrations, Access Control.
+Detections now has real-data filters: Severity, IP, User, Host, Endpoint, OS.
+Detections show a real Case action and allow resolving the linked fraud alert/case.
+Authentication telemetry now records IP, host, endpoint and OS for new real events; older records remain unchanged rather than being fabricated.
+The Isolation Forest model remains real-data-only.

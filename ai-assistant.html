@@ -1,0 +1,30 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI-ISF | AI Assistant</title><link rel="stylesheet" href="xdr.css"></head><body><script src="xdr.js"></script><script>
+shell('AI Assistant','AI Assistant','Ask questions about your recorded security evidence',`
+<div class="panel hud"><i></i><i></i><i></i><i></i><div class="chatwrap"><div class="chat" id="chat"></div><div class="sugg" id="sugg"></div><div class="chatbar"><input id="ask" class="fi" placeholder="Ask e.g. “show failed face verifications”…" autocomplete="off"><button class="btn primary" id="send">${ic('send')} Send</button></div></div></div>
+<div class="muted" style="font-size:11px;margin-top:10px;text-align:center">Rule-based assistant running on your own telemetry — no external AI service, no invented records.</div>`);
+const SUG=['Give me a summary','Show high-risk events','Failed face verifications','Failed logins in the last 24 hours','New device logins','Open cases'];
+const evId=n=>'EVT-'+String(n).padStart(6,'0');
+const AI_AV=`<div class="av">${ic('spark')}</div>`;
+function add(who,html){const m=document.createElement('div');m.className='msg '+(who==='u'?'u':'a');m.innerHTML=(who==='u'?'<div class="av">YOU</div>':AI_AV)+`<div class="bubble">${html}</div>`;$('chat').appendChild(m);$('chat').scrollTop=$('chat').scrollHeight;return m}
+function intent(t){const s=t.toLowerCase();
+ if(/summary|overview|status|how many|statistics|stats/.test(s))return{kind:'summary'};
+ if(/\bcases?\b/.test(s))return{kind:'cases'};
+ if(/high.?risk|critical|dangerous|severe/.test(s))return{preset:'high_risk',label:'high-risk events (risk ≥ 71)'};
+ if(/face/.test(s)&&/fail|reject|mismatch|denied|blocked/.test(s))return{preset:'face_failures',label:'failed face verifications'};
+ if(/password/.test(s)&&/fail|reject|wrong|invalid/.test(s))return{preset:'password_failures',label:'rejected passwords'};
+ if(/new device|unknown device|different device/.test(s))return{preset:'new_device',label:'logins from a new device'};
+ if(/fail/.test(s))return /24|today|last day|yesterday/.test(s)?{preset:'failed_24h',label:'failed logins in the last 24 hours'}:{q:'FAILED',label:'failed authentications'};
+ const q=s.replace(/\b(show|find|list|search|get|give|tell|me|all|the|for|about|any|are|there|is|events?|logs?|records?|please|with)\b/g,'').replace(/[?!.]/g,'').replace(/\s+/g,' ').trim();return{q,label:q?`records matching “${esc(q)}”`:'all recorded events'}}
+async function answer(text){const it=intent(text);
+ if(it.kind==='summary'){const [s,m]=await Promise.all([getJSON('/api/dashboard/statistics'),getJSON('/api/model/status')]);if(!s)return 'I could not reach the backend.';
+  return `Here is your security snapshot:<div class="legend" style="margin:10px 0;gap:8px"><span class="pill b">${s.total_attempts} events</span><span class="pill g">${s.successful_logins} successful</span><span class="pill r">${s.failed_logins} failed</span><span class="pill a">${s.high_risk_events} high-risk</span><span class="pill v">${s.open_alerts} open cases</span></div>Average risk score is <b>${s.average_risk_score}</b>/100. The Isolation Forest is <b>${m?.trained?'trained':'not trained yet'}</b> (${m?.real_event_count||0}/${m?.minimum_events||20} real events).`}
+ if(it.kind==='cases'){const d=await getJSON('/api/cases');const o=(d?.cases||[]).filter(c=>c.status==='OPEN');if(!o.length)return `You have <b>no open cases</b> — ${(d?.cases||[]).length} total case${(d?.cases||[]).length===1?'':'s'} on record.`;return `You have <b>${o.length} open case${o.length>1?'s':''}</b>:`+o.slice(0,5).map(c=>`<a class="hit" href="cases.html"><b>CASE-${String(c.id).padStart(5,'0')} · ${esc(c.event_type||'Detection')}</b><div>Risk ${Number(c.risk_score).toFixed(0)} · ${ago(c.created_at)}</div></a>`).join('')+(o.length>5?`<div class="muted" style="margin-top:8px">…and ${o.length-5} more.</div>`:'')}
+ const p=new URLSearchParams();if(it.preset)p.set('preset',it.preset);if(it.q)p.set('q',it.q);const d=await getJSON('/api/search/advanced?'+p);if(!d)return 'I could not reach the backend.';const r=d.results||[];
+ if(!r.length)return `I found <b>no ${it.label}</b> in your telemetry.`;
+ const hi=r.filter(x=>x.risk_score>=71).length,top=Object.entries(r.reduce((a,x)=>(a[x.event_type]=(a[x.event_type]||0)+1,a),{})).sort((a,b)=>b[1]-a[1])[0],peak=Math.max(...r.map(x=>x.risk_score));
+ return `I found <b>${r.length}</b> ${it.label}. ${hi?`<b>${hi}</b> of them are high-risk. `:''}The most common type is <b>${esc(top[0])}</b> (${top[1]}) and the peak risk score is <b>${peak}</b>. Latest matches:`+r.slice(0,5).map(x=>`<a class="hit" href="detections.html?q=${evId(x.id)}"><b>${esc(x.event_type)} · ${sevPill(x.risk_level).replace('class="pill','style="margin-left:6px" class="pill')}</b><div>${evId(x.id)} · ${ago(x.timestamp)} · risk ${x.risk_score}${x.detail?' · '+esc(String(x.detail).slice(0,70)):''}</div></a>`).join('')+(r.length>5?`<div style="margin-top:10px"><a class="btn sm" href="advanced-search.html?${p}">Open all ${r.length} in Advanced Search →</a></div>`:'')}
+let busy=false;async function send(t){t=(t||$('ask').value).trim();if(!t||busy)return;busy=true;$('ask').value='';add('u',esc(t));const th=add('a','<span class="typing"><i></i><i></i><i></i></span>');const [h]=await Promise.all([answer(t),new Promise(r=>setTimeout(r,650))]);th.querySelector('.bubble').innerHTML=h;$('chat').scrollTop=$('chat').scrollHeight;busy=false}
+$('sugg').innerHTML=SUG.map(s=>`<button class="chip">${s}</button>`).join('');$$('#sugg .chip').forEach(c=>c.onclick=()=>send(c.textContent));
+$('send').onclick=()=>send();$('ask').onkeydown=e=>{if(e.key==='Enter')send()};
+add('a','Hi! I\'m your <b>evidence assistant</b>. Ask me about failed logins, high-risk events, face verification, new devices or your open cases — I answer only from the telemetry stored in AI-ISF.');
+</script></body></html>

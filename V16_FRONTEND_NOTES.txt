@@ -1,0 +1,5 @@
+AI-ISF V16 - frontend upgrade (backend, database and data/ folder untouched)
+Changed: xdr.css, xdr.js (shared design system), index.html (additive login effects only),
+dashboard, alerts, cases, logs, risk-analysis, advanced-search, automations, ai-assistant, tools,
+tenant-settings, settings. Unchanged: every .py file, data/, Docker files, tests, requirements.
+Shortcuts: Ctrl+K or / = command palette, r = refresh, t = theme.

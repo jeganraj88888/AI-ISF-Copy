@@ -1,0 +1,19 @@
+AI-ISF XDR V21.1 BUGFIX BUILD
+
+FIXES
+- Fixed Isolation Forest feature mismatch: training and prediction now use the same 7 real-telemetry features.
+- Old incompatible ML models are rejected automatically instead of being used with the wrong feature layout.
+- Real ML model baseline now refreshes when new authentication telemetry is added.
+- Fixed model success-ratio training to use the same cumulative ratio semantics used during prediction.
+- Hardened numeric API parameters so malformed limit/risk/hour/failed-attempt values do not cause 500 errors.
+- Hardened Advanced Search export parameter parsing with the same validation.
+- Fixed report-generation database connection cleanup.
+- Health endpoint now distinguishes ML engine availability from whether a real model is trained.
+- Added optional .env loading through python-dotenv so VT_API_KEY can be supplied in the project .env file without putting secrets in frontend code.
+- Added .gitignore protection for .env, runtime databases, face templates, model files and Python caches.
+
+VALIDATION
+- app.py Python syntax: PASS
+- xdr.js syntax: PASS
+- All 12 V21 HTML inline-script syntax checks: PASS
+- Full pytest runtime could not be executed in the build container because Flask is not installed and the environment has no package-index/network access.
